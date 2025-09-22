@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Disasterbound Battle - Game Menu</title>
+
+  <!-- Pixelated font -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+
+  <!-- External CSS -->
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+  <!-- Background Music -->
+  <audio id="bgm" type="autoplay/mpeg" src="MainBgAudio.mp3"></audio>
+
+  <!-- Backdrop for overlays -->
+  <div id="overlayBackdrop" class="overlay-backdrop"></div>
+
+  <!-- Game Title -->
+  <h1 class="game-title">Disasterbound Battle</h1>
+
+  <!-- Buttons -->
+  <div class="button-container">
+    <button class="menu-button" onclick="location.href='cutscene.html'">Start</button>
+    <button class="menu-button" onclick="showOverlay('achievementsOverlay')">Achievements</button>
+    <button class="menu-button" onclick="showOverlay('leaderboardOverlay')">Leaderboard</button>
+    <button class="menu-button" onclick="showOverlay('creditsOverlay')">Credits</button>
+    <button class="menu-button" onclick="showOverlay('settingsOverlay')">Settings</button>
+  </div>
+
+  <!-- Credits Overlay -->
+  <div id="creditsOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="creditsTitle" tabindex="-1">
+    <h2 id="creditsTitle">Game Credits</h2>
+    <p><strong>Developed by:</strong> Cyrus nalang</p>
+    <p><strong>Art:</strong> <p>
+    <button class="close-btn" onclick="hideOverlay('creditsOverlay')">Close</button>
+  </div>
+
+  <!-- Settings Overlay -->
+  <div id="settingsOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" tabindex="-1">
+    <h2 id="settingsTitle">Settings</h2>
+    
+    <div class="setting-option">
+  <button class="mute-btn" aria-label="Mute/unmute music" onclick="toggleAudio()">🔊 Mute</button>
+    </div>
+
+    <div class="setting-option volume-container">
+      <label for="volumeSlider">Volume:</label>
+      <input type="range" id="volumeSlider" class="volume-slider" min="0" max="1" step="0.01" value="0.5" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0.5" />
+    </div>
+
+    <div class="setting-option">
+      <button id="fullscreenBtn" onclick="toggleFullscreen()">Toggle Fullscreen</button>
+    </div>
+
+    <button class="close-btn" onclick="hideOverlay('settingsOverlay')">Close</button>
+  </div>
+
+  <!-- Leaderboard Overlay -->
+  <div id="leaderboardOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle" tabindex="-1">
+    <h2 id="leaderboardTitle">Leaderboard</h2>
+    <select id="difficultyFilter" onchange="renderLeaderboard()">
+      <option value="all">All Difficulties</option>
+      <option value="Normal">Normal</option>
+      <option value="Hard">Hard</option>
+      <option value="Impossible">Impossible</option>
+    </select>
+    <div id="leaderboardContainer">
+      <table id="leaderboardTable" border="1" cellpadding="8">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Name</th>
+            <th>Difficulty</th>
+            <th>Time</th>
+            <th>Mistakes</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <button class="close-btn" onclick="hideOverlay('leaderboardOverlay')">Close</button>
+  </div>
+
+<!-- Achievements overlay -->
+  <div id="achievementsOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="achievementsTitle" tabindex="-1">
+    <h2 id="achievementsTitle">Achievements</h2>
+    <div id="achievementsList"></div>
+    <button class="close-btn" onclick="hideOverlay('achievementsOverlay')">Close</button>
+
+  </div>
+
+  </div>
+
+  <!-- External JS -->
+  <script src="index.js" defer></script>
+
+  <!-- Achievements Script -->
+  <script>
+    // Achievements logic
+    const achievements = [
+      { key: 'firstWin', name: 'First Victory', desc: 'Win your first battle.' },
+      { key: 'quickWin', name: 'Speedster', desc: 'Win with more than 30 seconds left.' },
+      { key: 'noDamage', name: 'Untouchable', desc: 'Win without taking damage.' },
+      { key: 'hardWin', name: 'Survivor', desc: 'Win on Hard difficulty.' }
+    ];
+    const unlocked = JSON.parse(localStorage.getItem('unlockedAchievements') || '{}');
+    const list = document.getElementById('achievementsList');
+    achievements.forEach(a => {
+      const div = document.createElement('div');
+      div.className = 'achievement ' + (unlocked[a.key] ? 'unlocked' : 'locked');
+      div.innerHTML = `<strong>${a.name}</strong><br>${a.desc}<br>
+        <span>${unlocked[a.key] ? 'Unlocked!' : 'Locked'}</span>`;
+      list.appendChild(div);
+    });
+
+    // Leaderboard logic for dedicated overlay
+    function renderLeaderboard() {
+      // Load history from all difficulty keys
+      const difficulties = ['normal', 'hard', 'impossible'];
+      let allHistory = [];
+      difficulties.forEach(diff => {
+        const key = `gameHistory_${diff}`;
+        const history = JSON.parse(localStorage.getItem(key) || '[]');
+        history.forEach(entry => {
+          entry.difficulty = diff.charAt(0).toUpperCase() + diff.slice(1); // Capitalize
+        });
+        allHistory = allHistory.concat(history);
+      });
+
+      const tbody = document.querySelector('#leaderboardTable tbody');
+      const filter = document.getElementById('difficultyFilter').value;
+      tbody.innerHTML = '';
+
+      if (allHistory.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="6" style="text-align: center; padding: 20px;">No games played yet!</td>';
+        tbody.appendChild(tr);
+        return;
+      }
+
+      // Handle old data format and assign ranks
+      allHistory.forEach(entry => {
+        if (!entry.totalTime && entry.enemy1Time !== undefined) {
+          entry.totalTime = (entry.enemy1Time || 0) + (entry.enemy2Time || 0);
+          entry.totalMistakes = (entry.enemy1Mistakes || 0) + (entry.enemy2Mistakes || 0);
+          entry.score = entry.totalTime + (entry.totalMistakes * 60);
+        }
+        if (!entry.name) {
+          entry.name = 'Anonymous';
+        }
+        if (!entry.difficulty) {
+          entry.difficulty = 'Normal';
+        }
+      });
+
+      // Filter by difficulty
+      let filteredHistory = allHistory;
+      if (filter !== 'all') {
+        filteredHistory = allHistory.filter(entry => entry.difficulty === filter);
+      }
+
+      // Sort by score and assign ranks
+      const rankedHistory = [...filteredHistory].sort((a, b) => (a.score ?? 99999) - (b.score ?? 99999));
+      rankedHistory.forEach((entry, index) => {
+        entry.rank = index + 1;
+      });
+
+      // Display top entries
+      rankedHistory.slice(0, 10).forEach((entry) => {
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-difficulty', entry.difficulty);
+        tr.innerHTML = `
+          <td>${entry.rank}</td>
+          <td>${entry.name}</td>
+          <td>${entry.difficulty}</td>
+          <td>${entry.totalTime || 0}s</td>
+          <td>${entry.totalMistakes || 0}</td>
+          <td>${entry.date || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Show leaderboard when overlay is opened
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('[onclick*="leaderboardOverlay"]')) {
+        setTimeout(renderLeaderboard, 100);
+      }
+    });
+
+  </script>
+  <!-- Shared button sound script -->
+  <script src="audio.js"></script>
+</body>
+</html>
